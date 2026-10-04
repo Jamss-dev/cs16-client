@@ -13,6 +13,7 @@
 *
 ****/
 #include "hud.h"
+#include "scripts.h" // LOCAL ADDITION (Silver Saint)
 #include "cl_util.h"
 #include "const.h"
 #include "entity_state.h"
@@ -588,6 +589,7 @@ void EV_HLDM_FireBullets(int idx,
 		Vector vecShotSrc = vecSrc;
 		int iShotPenetration = iPenetration;
 		Vector vecDir, vecEnd;
+		bool firstHit = true; // LOCAL ADDITION (Silver Saint): tell mod scripts about each bullet once
 
 		if ( iBulletType == BULLET_PLAYER_BUCKSHOT )
 		{
@@ -632,6 +634,12 @@ void EV_HLDM_FireBullets(int idx,
 			gEngfuncs.pEventAPI->EV_PlayerTrace( vecShotSrc, vecEnd, 0, -1, &tr );
 
 			float flCurrentDistance = tr.fraction * flDistance;
+
+			if( firstHit ) // LOCAL ADDITION (Silver Saint): tracers, impact effects
+			{
+				Scripts_Shot( idx, vecShotSrc, tr.endpos, iBulletType );
+				firstHit = false;
+			}
 
 			if( flCurrentDistance == 0.0f )
 			{

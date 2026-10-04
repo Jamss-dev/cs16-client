@@ -16,6 +16,7 @@
 // death notice
 //
 #include "hud.h"
+#include "scripts.h" // LOCAL ADDITION (Silver Saint)
 #include "cl_util.h"
 #include "parsemsg.h"
 
@@ -175,6 +176,7 @@ int CHudDeathNotice :: MsgFunc_DeathMsg( const char *pszName, int iSize, void *p
 	char killedwith[32];
 	strlcpy( killedwith, "d_", sizeof( killedwith ) );
 	strlcat( killedwith, reader.ReadString(), sizeof( killedwith ) );
+	Scripts_Death( killer, victim, headshot, killedwith + 2 ); // LOCAL ADDITION (Silver Saint): mod scripts
 
 	//if (gViewPort)
 	//	gViewPort->DeathMsg( killer, victim );

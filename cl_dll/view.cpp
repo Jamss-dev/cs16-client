@@ -12,6 +12,7 @@
 #include "hud.h"
 #include "pm_math.h"
 #include "cl_util.h"
+#include "inspect.h"
 #include "cvardef.h"
 #include "usercmd.h"
 #include "const.h"
@@ -708,6 +709,7 @@ void V_CalcNormalRefdef ( struct ref_params_s *pparams )
 
 	// view is the weapon model (only visible from inside body)
 	view = gEngfuncs.GetViewModel();
+	Inspect_Update( view ); // LOCAL ADDITION (Silver Saint): weapon inspect (drives clip, end, cancel)
 
 	// transform the view offset by the model's matrix to get the offset from
 	// model origin for the view
@@ -1874,6 +1876,7 @@ V_Init
 void V_Init (void)
 {
 	//gEngfuncs.pfnAddCommand ("centerview", V_StartPitchDrift );
+	Inspect_Init(); // LOCAL ADDITION (Silver Saint)
 
 	scr_ofsx			= gEngfuncs.pfnRegisterVariable( "scr_ofsx","0", 0 );
 	scr_ofsy			= gEngfuncs.pfnRegisterVariable( "scr_ofsy","0", 0 );

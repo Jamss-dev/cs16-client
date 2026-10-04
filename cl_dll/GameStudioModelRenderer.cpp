@@ -17,6 +17,7 @@
 // for this code.
 #include <assert.h>
 #include "hud.h"
+#include "scripts.h" // LOCAL ADDITION (Silver Saint)
 #include "cl_util.h"
 #include "const.h"
 #include "com_model.h"
@@ -938,6 +939,19 @@ int CGameStudioModelRenderer::_StudioDrawPlayer(int flags, entity_state_t *pplay
 
 	StudioSetupBones();
 	StudioSaveBones();
+
+	// LOCAL ADDITION (Silver Saint): the head's position, for mod scripts
+	{
+		mstudiobone_t *pbones = (mstudiobone_t *)((byte *)m_pStudioHeader + m_pStudioHeader->boneindex);
+		for (int b = 0; b < m_pStudioHeader->numbones; b++)
+		{
+			if (strcasecmp(pbones[b].name, "Bip01 Head"))
+				continue;
+			float head[3] = { (*m_pbonetransform)[b][0][3], (*m_pbonetransform)[b][1][3], (*m_pbonetransform)[b][2][3] };
+			Scripts_PlayerBones(m_nPlayerIndex + 1, head);
+			break;
+		}
+	}
 
 	m_pPlayerInfo->renderframe = m_nFrameCount;
 	m_pPlayerInfo = NULL;

@@ -19,6 +19,7 @@
 //
 
 #include "hud.h"
+#include "scripts.h" // LOCAL ADDITION (Silver Saint)
 #include "netadr.h"
 #include "pmtrace.h"
 
@@ -125,6 +126,7 @@ HUD_Shutdown
 */
 void DLLEXPORT HUD_Shutdown( void )
 {
+	Scripts_Shutdown(); // LOCAL ADDITION (Silver Saint): mod scripts
 	gHUD.Shutdown();
 	Input_Shutdown();
 	Localize_Free();
@@ -276,6 +278,7 @@ void DLLEXPORT HUD_Init( void )
 	LoadMenuInterface();
 	InitInput();
 	gHUD.Init();
+	Scripts_Init(); // LOCAL ADDITION (Silver Saint): mod scripts
 	
 	// Initialize menu if it's loaded
 	if( g_pMenu && !g_pMenu->Initialize( Sys_GetFactoryThis() ) )
@@ -298,6 +301,7 @@ redraw the HUD.
 int DLLEXPORT HUD_Redraw( float time, int intermission )
 {
 	gHUD.Redraw( time, intermission );
+	Scripts_Hud( time ); // LOCAL ADDITION (Silver Saint): mod scripts draw over the HUD
 
 	return 1;
 }
@@ -346,6 +350,7 @@ Called by engine every frame that client .dll is loaded
 
 void DLLEXPORT HUD_Frame( double time )
 {
+	Scripts_Frame( time ); // LOCAL ADDITION (Silver Saint): mod scripts
 #ifdef _CS16CLIENT_ENABLE_GSRC_SUPPORT
 	gEngfuncs.VGui_ViewportPaintBackground(HUD_GetRect());
 #endif

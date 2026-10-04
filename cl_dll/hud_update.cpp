@@ -18,6 +18,7 @@
 
 #include <math.h>
 #include "hud.h"
+#include "scripts.h" // LOCAL ADDITION (Silver Saint)
 #include "cl_util.h"
 #include <stdlib.h>
 #include <memory.h>
@@ -38,7 +39,7 @@ int CHud::UpdateClientData(client_data_t *cdata, float time)
 
 	Think();
 
-	cdata->fov = m_iFOV;
+	cdata->fov = Scripts_Fov( m_iFOV ); // LOCAL ADDITION (Silver Saint): a mod script may set the FOV
 	
 	v_idlescale = m_iConcussionEffect;
 

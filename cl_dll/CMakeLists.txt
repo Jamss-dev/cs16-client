@@ -75,6 +75,20 @@ endif()
 
 add_library(${CLIENT_LIB} SHARED ${CS_CLIENT_SRC})
 
+# LOCAL ADDITION (Silver Saint): Lua 5.4 (MIT) for mod scripts, vendored unmodified in the
+# Silver Saint repo (thirdparty/lua, checksum in SOURCE.txt). See scripts.cpp.
+# The published source carries its own copy in 3rdparty/lua; a Silver Saint checkout uses the repo's.
+set(SS_LUA_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../3rdparty/lua")
+if(NOT EXISTS "${SS_LUA_DIR}/lua.h")
+	set(SS_LUA_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../thirdparty/lua")
+endif()
+file(GLOB SS_LUA_SRC "${SS_LUA_DIR}/*.c")
+add_library(ss_lua STATIC ${SS_LUA_SRC})
+target_compile_definitions(ss_lua PRIVATE LUA_USE_POSIX)
+set_target_properties(ss_lua PROPERTIES POSITION_INDEPENDENT_CODE ON C_VISIBILITY_PRESET hidden)
+target_include_directories(${CLIENT_LIB} PRIVATE "${SS_LUA_DIR}")
+target_link_libraries(${CLIENT_LIB} ss_lua)
+
 set_target_postfix(${CLIENT_LIB})
 
 install(TARGETS ${CLIENT_LIB}

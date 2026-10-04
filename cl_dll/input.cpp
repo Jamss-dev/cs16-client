@@ -12,6 +12,7 @@
 // Quake is a trademark of Id Software, Inc., (c) 1996 Id Software, Inc. All
 // rights reserved.
 #include "hud.h"
+#include "scripts.h" // LOCAL ADDITION (Silver Saint)
 #include "cl_util.h"
 #include "camera.h"
 #include "kbutton.h"
@@ -370,7 +371,7 @@ int DLLEXPORT HUD_Key_Event( int down, int keynum, const char *pszCurrentBinding
 	if( g_pMenu )
 		g_pMenu->Key( keynum, down );
 
-	return 1;
+	return Scripts_Key( down, keynum ); // LOCAL ADDITION (Silver Saint): a mod script may take the key
 }
 
 void IN_BreakDown( void ) { KeyDown( &in_break );}
@@ -748,6 +749,10 @@ void DLLEXPORT CL_CreateMove ( float frametime, struct usercmd_s *cmd, int activ
 			cmd->buttons |= IN_BACK;
 		}
 	}
+
+	// LOCAL ADDITION (Silver Saint): mod scripts see the finished input and may change aim/buttons
+	if ( active )
+		Scripts_CreateMove( frametime, cmd );
 
 	gEngfuncs.GetViewAngles( (float *)viewangles );
 	// Set current view angles.
