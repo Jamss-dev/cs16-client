@@ -165,17 +165,9 @@ bool BoneAt( cl_entity_t *view, studiohdr_t *hdr, int sequence, float frame, int
 	return true;
 }
 
-// Where the gun has finished coming up into view: after the last frame where the gun is still
-// far from where it rests (travelling up from below the screen). Everything after that -- the
-// click, the rack, the sway -- is kept; `from` (measured per model) is the minimum. Works for
-// any model.
-float SettledFrame( cl_entity_t *view, studiohdr_t *hdr, int sequence, float from )
+// The weapon itself: the bone that carries the most vertices (hands and arms carry fewer).
+int WeaponBone( studiohdr_t *hdr )
 {
-	const float offScreen = 10;   // units from the rest position
-	mstudioseqdesc_t *s = Sequences( hdr ) + sequence;
-	int last = s->numframes - 1;
-
-	// The gun: the bone that carries the most vertices.
 	static int vertsPerBone[MAXSTUDIOBONES];
 	memset( vertsPerBone, 0, sizeof( vertsPerBone ));
 	mstudiobodyparts_t *parts = (mstudiobodyparts_t *)( (byte *)hdr + hdr->bodypartindex );
@@ -189,6 +181,19 @@ float SettledFrame( cl_entity_t *view, studiohdr_t *hdr, int sequence, float fro
 	int gun = -1, most = 0;
 	for( int i = 0; i < hdr->numbones; i++ )
 		if( vertsPerBone[i] > most ) { most = vertsPerBone[i]; gun = i; }
+	return gun;
+}
+
+// Where the gun has finished coming up into view: after the last frame where the gun is still
+// far from where it rests (travelling up from below the screen). Everything after that -- the
+// click, the rack, the sway -- is kept; `from` (measured per model) is the minimum. Works for
+// any model.
+float SettledFrame( cl_entity_t *view, studiohdr_t *hdr, int sequence, float from )
+{
+	const float offScreen = 10;   // units from the rest position
+	mstudioseqdesc_t *s = Sequences( hdr ) + sequence;
+	int last = s->numframes - 1;
+	int gun = WeaponBone( hdr );
 	if( gun < 0 ) return from;
 
 	float rest[3][4], at[3][4];
@@ -201,6 +206,31 @@ float SettledFrame( cl_entity_t *view, studiohdr_t *hdr, int sequence, float fro
 		if( sqrtf( dx * dx + dy * dy + dz * dz ) > offScreen && f + 1 > settled ) settled = f + 1;
 	}
 	return settled < last - 2 ? settled : from;
+}
+
+// Where the weapon first moves. The stock knife's idle holds perfectly still for its first
+// ~2.5 s before the flip, so starting at frame 0 looked like pressing I did nothing (and moving
+// in that time cancelled it unseen). Starts a few frames early so the motion eases in.
+float FirstMovingFrame( cl_entity_t *view, studiohdr_t *hdr, int sequence )
+{
+	const float moved = 0.05f, turned = 0.002f;   // units; rotation-matrix terms
+	const int leadIn = 3;
+	mstudioseqdesc_t *s = Sequences( hdr ) + sequence;
+	int gun = WeaponBone( hdr );
+	float start[3][4], at[3][4];
+	if( gun < 0 || !BoneAt( view, hdr, sequence, 0, gun, start )) return 0;
+	for( int f = 1; f < s->numframes - 1; f++ )
+	{
+		if( !BoneAt( view, hdr, sequence, f, gun, at )) return 0;
+		float d = 0;
+		for( int r = 0; r < 3; r++ )
+		{
+			for( int c = 0; c < 3; c++ ) d = fmaxf( d, fabsf( at[r][c] - start[r][c] ) / turned );
+			d = fmaxf( d, fabsf( at[r][3] - start[r][3] ) / moved );
+		}
+		if( d > 1 ) return f > leadIn ? f - leadIn : 0;
+	}
+	return 0;
 }
 
 // Hand the view model back to the game, cross-fading from where the clip got to.
@@ -237,7 +267,10 @@ void Inspect_f( void )
 	float first = 0;
 	const char *sound = NULL;
 	if( strstr( weapon, "knife" ))
+	{
 		seq = KnifeIdle( hdr );
+		if( seq >= 0 ) first = FirstMovingFrame( view, hdr, seq );
+	}
 	else
 	{
 		for( size_t i = 0; i < sizeof( clips ) / sizeof( clips[0] ); i++ )
