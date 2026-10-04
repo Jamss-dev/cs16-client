@@ -497,7 +497,10 @@ int l_textWidth( lua_State *l )
 }
 
 // Effects.
-int beamSprite = -1;
+
+// Your last shot's muzzle (Scripts_Shot), so beams starting there can be anchored to the gun.
+static float lastShotMuzzle[3];
+static float lastShotTime = -1;
 
 int l_beam( lua_State *l )
 {
@@ -506,9 +509,21 @@ int l_beam( lua_State *l )
 	i = GetVec( l, i, b );
 	float r = Num( l, i, 255 ) / 255, g = Num( l, i + 1, 255 ) / 255, bl = Num( l, i + 2, 255 ) / 255;
 	float life = Num( l, i + 3, 0.15f ), width = Num( l, i + 4, 1.5f ), bright = Num( l, i + 5, 1 );
-	if( beamSprite < 0 ) beamSprite = gEngfuncs.pEventAPI->EV_FindModelIndex( "sprites/laserbeam.spr" );
-	if( beamSprite <= 0 ) return 0;
-	gEngfuncs.pEfxAPI->R_BeamPoints( a, b, beamSprite, life, width, 0, bright, 0, 0, 0, r, g, bl );
+	// Silver Saint's smooth beam (written by the launcher), else Valve's laserbeam. Looked up each
+	// time: model indices change from map to map.
+	int sprite = 0;
+	if( !gEngfuncs.CL_LoadModel( "sprites/silversaint/beam.spr", &sprite ) || sprite <= 0 )
+		sprite = gEngfuncs.pEventAPI->EV_FindModelIndex( "sprites/laserbeam.spr" );
+	if( sprite <= 0 ) return 0;
+	// A beam from your own shot's muzzle stays on the barrel (see FirstPersonMuzzle).
+	float now = gEngfuncs.GetClientTime();
+	if( lastShotTime >= 0 && now - lastShotTime < 0.5f && fabsf( a[0] - lastShotMuzzle[0] ) < 1 && fabsf( a[1] - lastShotMuzzle[1] ) < 1
+		&& fabsf( a[2] - lastShotMuzzle[2] ) < 1 )
+	{
+		gEngfuncs.pEfxAPI->R_BeamEntPoint( -( 1 | ( 1 << 12 )), b, sprite, life, width, 0, bright, 0, 0, 0, r, g, bl );
+		return 0;
+	}
+	gEngfuncs.pEfxAPI->R_BeamPoints( a, b, sprite, life, width, 0, bright, 0, 0, 0, r, g, bl );
 	return 0;
 }
 
@@ -1004,6 +1019,50 @@ void Scripts_Death( int killer, int victim, int headshot, const char *weapon )
 	} );
 }
 
+// Where the first-person barrel is. The gun's muzzle point is only worked out when the gun is
+// drawn, after shots are processed, and a tracer is fixed in the world for its whole life: a beam
+// starting ~20 units from the eye slid across the screen as soon as you moved, and one fired while
+// turning or mid-recoil started where the barrel was a frame earlier. So the muzzle is kept
+// relative to the gun's origin and the view (forward, right, up) every time the gun is drawn, and
+// a beam that starts at a local shot's muzzle is anchored to user entity 1, whose attachment is
+// recomputed from the current gun position every frame. The beam leaves the barrel however you move.
+extern vec3_t v_angles;
+static float vmMuzzle[3] = { 18, 6, -6 };   // a typical rifle, until the gun has been drawn
+static cl_entity_t muzzleEntity;
+
+void Scripts_ViewModelMuzzle( const float *attachment, const float *gunOrigin )
+{
+	float f[3], r[3], u[3], d[3];
+	AngleVectors( v_angles, f, r, u );
+	VectorSubtract( attachment, gunOrigin, d );
+	float off[3] = { DotProduct( d, f ), DotProduct( d, r ), DotProduct( d, u ) };
+	// Only a plausible barrel: in front and not far off to a side (draw and holster animations
+	// swing the gun out of view; keep the last good position through those).
+	if( off[0] < 4 || off[0] > 80 || fabsf( off[1] ) > 40 || fabsf( off[2] ) > 40 ) return;
+	VectorCopy( off, vmMuzzle );
+}
+
+static void FirstPersonMuzzle( float *out )
+{
+	cl_entity_t *gun = gEngfuncs.GetViewModel();
+	cl_entity_t *me = gEngfuncs.GetLocalPlayer();
+	float base[3], f[3], r[3], u[3];
+	if( gun && gun->model ) { VectorCopy( gun->origin, base ); }
+	else if( me ) { VectorCopy( me->origin, base ); }
+	else { VectorClear( out ); return; }
+	AngleVectors( v_angles, f, r, u );
+	for( int k = 0; k < 3; k++ ) out[k] = base[k] + f[k] * vmMuzzle[0] + r[k] * vmMuzzle[1] + u[k] * vmMuzzle[2];
+}
+
+cl_entity_t *Scripts_UserEntity( int index )
+{
+	if( index != 1 ) return NULL;
+	FirstPersonMuzzle( muzzleEntity.attachment[0] );
+	VectorCopy( muzzleEntity.attachment[0], muzzleEntity.origin );
+	muzzleEntity.index = 0;
+	return &muzzleEntity;
+}
+
 void Scripts_Shot( int shooter, const float *from, const float *to, int bulletType )
 {
 	cl_entity_t *me = gEngfuncs.GetLocalPlayer();
@@ -1011,8 +1070,17 @@ void Scripts_Shot( int shooter, const float *from, const float *to, int bulletTy
 	if( mine ) { StatsLoad(); stats.all.shots++; if( !LocalGame()) stats.online.shots++; stats.dirty = true; }
 	float muzzle[3];
 	VectorCopy( from, muzzle );
-	cl_entity_t *src = mine ? gEngfuncs.GetViewModel() : gEngfuncs.GetEntityByIndex( shooter );
-	if( src ) VectorCopy( src->attachment[0], muzzle );
+	if( mine )
+	{
+		FirstPersonMuzzle( muzzle );
+		VectorCopy( muzzle, lastShotMuzzle );
+		lastShotTime = gEngfuncs.GetClientTime();
+	}
+	else
+	{
+		cl_entity_t *src = gEngfuncs.GetEntityByIndex( shooter );
+		if( src ) VectorCopy( src->attachment[0], muzzle );
+	}
 	Emit( "shot", [&] {
 		lua_createtable( L, 0, 6 );
 		lua_pushinteger( L, shooter ); lua_setfield( L, -2, "shooter" );

@@ -10,6 +10,7 @@
 #include <memory.h>
 
 #include "hud.h"
+#include "scripts.h"
 #include "pm_defs.h"
 #include "pmtrace.h"
 #include "pm_shared.h"
@@ -793,6 +794,6 @@ Indices must start at 1, not zero.
 */
 cl_entity_t DLLEXPORT *HUD_GetUserEntity( int index )
 {
-	return NULL;
+	return Scripts_UserEntity( index );   // LOCAL ADDITION (Silver Saint): tracers anchored to the gun
 }
 

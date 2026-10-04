@@ -11,5 +11,7 @@ void Scripts_CreateMove( float frametime, struct usercmd_s *cmd );   // may chan
 int  Scripts_Key( int down, int keynum );                            // 0 = a script took the key
 void Scripts_Death( int killer, int victim, int headshot, const char *weapon );
 void Scripts_Shot( int shooter, const float *from, const float *to, int bulletType );
+void Scripts_ViewModelMuzzle( const float *attachment, const float *gunOrigin );   // the first-person gun was just drawn
+struct cl_entity_s *Scripts_UserEntity( int index );   // HUD_GetUserEntity: 1 = the first-person muzzle
 void Scripts_PlayerBones( int player, const float *head );          // head position, per frame
 int  Scripts_Fov( int fov );           // a script's FOV, or `fov` unchanged

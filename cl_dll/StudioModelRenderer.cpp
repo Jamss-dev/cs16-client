@@ -35,6 +35,7 @@
 #include "r_studioint.h"
 
 #include "StudioModelRenderer.h"
+#include "scripts.h"
 #include "GameStudioModelRenderer.h"
 
 #include "event_api.h"
@@ -1262,6 +1263,19 @@ void CStudioModelRenderer::StudioCalcAttachments(void)
 
 	for (i = 0; i < m_pStudioHeader->numattachments; i++)
 		VectorTransform(pattachment[i].org, (*m_plighttransform)[pattachment[i].bone], m_pCurrentEntity->attachment[i]);
+
+	// LOCAL ADDITION (Silver Saint): remember where the first-person muzzle sits relative to the
+	// view, so tracers fired before the next frame's gun is drawn still start at the barrel.
+	// Silencer guns (USP, M4A1) have the silencer tip as attachment 0 and the bare barrel as 2;
+	// their "_unsil" animations mean the silencer is off.
+	if (m_pStudioHeader->numattachments > 0 && m_pCurrentEntity == gEngfuncs.GetViewModel())
+	{
+		int muzzle = 0, seq = m_pCurrentEntity->curstate.sequence;
+		mstudioseqdesc_t *pseq = (mstudioseqdesc_t *)((byte *)m_pStudioHeader + m_pStudioHeader->seqindex);
+		if (m_pStudioHeader->numattachments >= 3 && seq >= 0 && seq < m_pStudioHeader->numseq && strstr(pseq[seq].label, "unsil"))
+			muzzle = 2;
+		Scripts_ViewModelMuzzle(m_pCurrentEntity->attachment[muzzle], m_pCurrentEntity->origin);
+	}
 }
 
 void CStudioModelRenderer::StudioRenderModel(float *lightdir)
